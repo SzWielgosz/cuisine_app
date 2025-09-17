@@ -21,6 +21,7 @@ from api.views import *
 
 urlpatterns = [
     path('admin/', admin.site.urls),
+    path('api/register', RegisterApiView.as_view()),
     path('api/recipes/', RecipeListCreateView.as_view()),
     path('api/recipes/<int:pk>', RecipeDetailView.as_view()),
     path('api/recipes/<int:pk>/comments', ListCreateCommentView.as_view()),

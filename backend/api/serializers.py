@@ -1,6 +1,34 @@
 from rest_framework import serializers
 from rest_framework.relations import PrimaryKeyRelatedField
 from .models import User, Profile, Category, Recipe, Ingredient, RecipeIngredient, Comment, Rating
+from django.contrib.auth.password_validation import validate_password
+
+
+class RegisterSerializer(serializers.ModelSerializer):
+    password1 = serializers.CharField(write_only=True)
+    password2 = serializers.CharField(write_only=True)
+
+    class Meta:
+        model = User
+        fields = ('username', 'email', 'password1', 'password2')
+        extra_kwargs = {'email': {'required': True}, 'username': {'required': True}}
+
+
+    def validate(self, attrs):
+        if attrs['password1'] != attrs['password2']:
+            raise serializers.ValidationError('Passwords must match.')
+        validate_password(attrs['password1'])
+        return attrs
+
+
+    def create(self, validated_data):
+        password = validated_data.pop('password1')
+        user = User.objects.create_user(
+            username=validated_data['username'],
+            email=validated_data['email'],
+            password=password,
+        )
+        return user
 
 
 class UserSerializer(serializers.ModelSerializer):

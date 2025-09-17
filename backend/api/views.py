@@ -87,3 +87,9 @@ class RecipeIngredientAPIView(APIView):
         recipe_ingredients = RecipeIngredient.objects.filter(recipe=recipe)
         serializer = RecipeIngredientSerializer(recipe_ingredients, many=True)
         return Response(serializer.data)
+
+
+class RegisterApiView(generics.CreateAPIView):
+    queryset = User.objects.all()
+    permission_classes = [permissions.AllowAny]
+    serializer_class = RegisterSerializer
