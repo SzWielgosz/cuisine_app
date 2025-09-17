@@ -18,12 +18,16 @@ from django.contrib import admin
 from django.urls import path
 from api.views import *
 
+
 urlpatterns = [
     path('admin/', admin.site.urls),
     path('api/recipes/', RecipeListCreateView.as_view()),
     path('api/recipes/<int:pk>', RecipeDetailView.as_view()),
-    path('api/recipes/<int:pk>/comments', RecipeDetailView.as_view()),
-    path('api/recipes/<int:pk>/ratings', IngredientListView.as_view()),
+    path('api/recipes/<int:pk>/comments', ListCreateCommentView.as_view()),
+    path('api/recipes/<int:pk>/ratings', ListCreateRatingView.as_view()),
+    path('api/recipes/<int:pk>/ingredients', RecipeIngredientAPIView.as_view()),
+
+    path('api/ingredients', IngredientListView.as_view()),
 
     path('api/categories', CategoryListView.as_view()),
     path('api/categories/<int:pk>', CategoryDetailView.as_view()),
