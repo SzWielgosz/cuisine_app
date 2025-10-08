@@ -2,6 +2,7 @@ from rest_framework import serializers
 from rest_framework.relations import PrimaryKeyRelatedField
 from .models import User, Profile, Category, Recipe, Ingredient, RecipeIngredient, Comment, Rating
 from django.contrib.auth.password_validation import validate_password
+from django.contrib.auth import authenticate
 
 
 class RegisterSerializer(serializers.ModelSerializer):
@@ -28,6 +29,7 @@ class RegisterSerializer(serializers.ModelSerializer):
             email=validated_data['email'],
             password=password,
         )
+        Profile.objects.create(user=user)
         return user
 
 
@@ -35,7 +37,6 @@ class UserSerializer(serializers.ModelSerializer):
     class Meta:
         model = User
         fields = ['id', 'username', 'email']
-        exclude = ('password',)
 
 
 class ProfileSerializer(serializers.ModelSerializer):
@@ -58,19 +59,24 @@ class IngredientSerializer(serializers.ModelSerializer):
 
 
 class RecipeIngredientSerializer(serializers.ModelSerializer):
-    ingredient = IngredientSerializer(read_only=True)
+    ingredient = IngredientSerializer()
     class Meta:
         model = RecipeIngredient
         fields = ['id', 'ingredient', 'quantity', 'unit', 'note']
 
 
+class RecipeIngredientWriteSerializer(serializers.ModelSerializer):
+    ingredient_id = serializers.PrimaryKeyRelatedField(queryset=Ingredient.objects.all())
+    class Meta:
+        model = RecipeIngredient
+        fields = ['ingredient_id', 'quantity', 'unit', 'note']
+
+
 class RecipeSerializer(serializers.ModelSerializer):
     author = UserSerializer(read_only=True)
     category = PrimaryKeyRelatedField(queryset=Category.objects.all())
-    ingredients = serializers.ListField(
-        child=RecipeIngredientSerializer(),
-        write_only=True,
-    )
+    ingredients = RecipeIngredientSerializer(many=True, read_only=True, source='recipeingredient_set')
+
     class Meta:
         model = Recipe
         fields = [
@@ -79,32 +85,37 @@ class RecipeSerializer(serializers.ModelSerializer):
             'cook_time', 'cook_time_units', 'servings', 'ingredients'
         ]
 
-    def get_ingredients(self, obj):
-        ingredients = RecipeIngredient.objects.filter(recipe=obj)
-        return RecipeIngredientSerializer(ingredients, many=True).data
+
+class RecipeWriteSerializer(serializers.ModelSerializer):
+    author = UserSerializer(read_only=True)
+    category = PrimaryKeyRelatedField(queryset=Category.objects.all())
+    ingredients = RecipeIngredientWriteSerializer(many=True, write_only=True)
+
+    class Meta:
+        model = Recipe
+        fields = ['id', 'image', 'category', 'name', 'description', 'author',
+                  'created_at', 'updated_at', 'prep_time', 'prep_time_unit',
+                  'cook_time', 'cook_time_units', 'servings', 'ingredients']
 
     def create(self, validated_data):
-        ingredients = validated_data.pop('ingredients')
+        ingredients_data = validated_data.pop('ingredients')
         recipe = Recipe.objects.create(**validated_data)
 
-        for item in ingredients:
-            ingredient_id = item.get('id')
-            quantity = item.get('quantity')
-            unit = item.get('unit')
-            note = item.get('note', '')
-
-            ingredient = Ingredient.objects.get(id=ingredient_id)
-
-            RecipeIngredient.objects.create(recipe=recipe, ingredient=ingredient, quantity=quantity, unit=unit, note=note)
+        for item in ingredients_data:
+            ingredient = Ingredient.objects.get(id=item['ingredient_id'])
+            RecipeIngredient.objects.create(
+                recipe=recipe,
+                ingredient=ingredient,
+                quantity=item['quantity'],
+                unit=item['unit'],
+                note=item.get('note', '')
+            )
 
         return recipe
-
 
     def validate(self, attrs):
         if len(attrs['ingredients']) < 2:
             raise serializers.ValidationError('You must provide at least 2 ingredients')
-        if attrs['category'] not in Category.objects.all():
-            raise serializers.ValidationError('You must provide a valid category')
         return attrs
 
 

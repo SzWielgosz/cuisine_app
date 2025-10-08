@@ -22,7 +22,7 @@ class User(AbstractUser):
 
 
 class Profile(models.Model):
-    def user_profile_picture_path(instance, filename):
+    def user_profile_picture_path(self, instance, filename):
         return f'profile_pictures/{instance.user.username}/{filename}'
     
     user = models.OneToOneField(User, on_delete=models.CASCADE, related_name='profile')
