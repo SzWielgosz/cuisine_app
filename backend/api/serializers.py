@@ -1,4 +1,5 @@
 from rest_framework import serializers
+from rest_framework.generics import get_object_or_404
 from rest_framework.relations import PrimaryKeyRelatedField
 from .models import User, Profile, Category, Recipe, Ingredient, RecipeIngredient, Comment, Rating
 from django.contrib.auth.password_validation import validate_password
@@ -133,3 +134,44 @@ class RatingSerializer(serializers.ModelSerializer):
     class Meta:
         model = Rating
         fields = ['id', 'recipe', 'author', 'score', 'created_at', 'updated_at']
+
+
+class RatingWriteSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Rating
+        fields = ['score']
+
+    def validate(self, attrs):
+        user = self.context['request'].user
+        request = self.context['request']
+
+        if not user.is_authenticated:
+            raise serializers.ValidationError('User is not authenticated')
+
+
+        # recipe id from url
+        recipe_id = self.context['view'].kwargs.get('pk')
+        recipe = get_object_or_404(Recipe, id=recipe_id)
+
+
+        if request.method == 'POST':
+            if Rating.objects.filter(recipe=recipe).filter(author=user).exists():
+                raise serializers.ValidationError('Rating already exists')
+
+        if request.method in ['PUT', 'PATCH']:
+            if Rating.objects.filter(recipe=recipe).filter(author=user).exists():
+                raise serializers.ValidationError('Rating does not exist')
+
+
+        attrs['recipe'] = recipe
+        return attrs
+
+
+    def create(self, validated_data):
+        return Rating.objects.create(**validated_data)
+
+
+    def update(self, instance, validated_data):
+        instance.score = validated_data.get('score', instance.score)
+        instance.save()
+        return instance

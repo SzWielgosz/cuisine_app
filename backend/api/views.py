@@ -59,16 +59,30 @@ class CommentDetailView(generics.RetrieveUpdateDestroyAPIView):
 
 
 class ListCreateRatingView(generics.ListCreateAPIView):
-    serializer_class = RatingSerializer
-    permission_classes = [permissions.IsAuthenticated]
+    permission_classes = [permissions.IsAuthenticatedOrReadOnly, IsAuthorOrReadOnly]
 
     def get_queryset(self):
         recipe = get_object_or_404(Recipe, id=self.kwargs['pk'])
         return Rating.objects.filter(recipe=recipe)
 
+    def get_serializer_class(self):
+        if self.request.method == 'POST':
+            return RatingWriteSerializer
+        return RatingSerializer
+
     def perform_create(self, serializer):
         recipe = get_object_or_404(Recipe, id=self.kwargs['pk'])
         serializer.save(author=self.request.user, recipe=recipe)
+
+
+class ReadUpdateDeleteRatingView(generics.RetrieveUpdateDestroyAPIView):
+    queryset = Rating.objects.all()
+    permission_classes = [permissions.IsAuthenticated, IsAuthorOrReadOnly]
+
+    def get_serializer_class(self):
+        if self.request.method == 'GET':
+            return RatingSerializer
+        return RatingWriteSerializer
 
 
 class RatingView(generics.RetrieveUpdateDestroyAPIView):

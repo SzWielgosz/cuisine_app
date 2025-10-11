@@ -40,5 +40,5 @@ urlpatterns = [
 
     path('api/comments/<int:pk>', CommentDetailView.as_view()),
 
-    path('api/ratings/<int:pk>', RatingView.as_view()),
+    path('api/ratings/<int:pk>', ReadUpdateDeleteRatingView.as_view()),
 ]
