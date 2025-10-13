@@ -1,9 +1,9 @@
+from django.utils import timezone
 from rest_framework import serializers
 from rest_framework.generics import get_object_or_404
 from rest_framework.relations import PrimaryKeyRelatedField
 from .models import User, Profile, Category, Recipe, Ingredient, RecipeIngredient, Comment, Rating
 from django.contrib.auth.password_validation import validate_password
-from django.contrib.auth import authenticate
 
 
 class RegisterSerializer(serializers.ModelSerializer):
@@ -29,6 +29,7 @@ class RegisterSerializer(serializers.ModelSerializer):
             username=validated_data['username'],
             email=validated_data['email'],
             password=password,
+            is_active=False
         )
         Profile.objects.create(user=user)
         return user
@@ -175,3 +176,17 @@ class RatingWriteSerializer(serializers.ModelSerializer):
         instance.score = validated_data.get('score', instance.score)
         instance.save()
         return instance
+
+
+class SendActivationEmailSerializer(serializers.Serializer):
+    email = serializers.EmailField()
+
+    def validate(self, attrs):
+        try:
+            user = User.objects.get(email=attrs['email'])
+            if user.is_active:
+                raise serializers.ValidationError('User account is already active')
+        except User.DoesNotExist:
+            raise serializers.ValidationError('User does not exist')
+        attrs['user'] = user
+        return attrs

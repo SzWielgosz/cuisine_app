@@ -1,10 +1,17 @@
-from rest_framework import permissions
-from rest_framework.generics import get_object_or_404
+import datetime
+from datetime import timedelta, timezone
+
+from django.db import transaction
+from django.utils.http import urlsafe_base64_decode
+from rest_framework import permissions, status
 from rest_framework.response import Response
 from rest_framework.views import APIView
 from .serializers import *
 from rest_framework import generics
 from .permissions import IsAuthorOrReadOnly, IsAdminOrReadOnly
+from .services import send_activation_email
+from .tokens import account_activation_token
+from django.conf import settings
 
 
 class CategoryListView(generics.ListAPIView):
@@ -107,3 +114,47 @@ class RegisterApiView(generics.CreateAPIView):
     queryset = User.objects.all()
     permission_classes = [permissions.AllowAny]
     serializer_class = RegisterSerializer
+
+    @transaction.atomic
+    def perform_create(self, serializer):
+        user = serializer.save()
+        send_activation_email(user)
+
+
+    def create(self, request, *args, **kwargs):
+        response = super().create(request, *args, **kwargs)
+        response.data = {
+            "message": "User registered successfully. Check your email for activation link!"
+        }
+        return response
+
+
+
+class ActivateUserView(APIView):
+    permission_classes = [permissions.AllowAny]
+
+    def get(self, request, uidb64, token):
+        try:
+            uid = urlsafe_base64_decode(uidb64).decode()
+            user = User.objects.get(pk=uid)
+        except (TypeError, ValueError, OverflowError, User.DoesNotExist):
+            return Response({'error': 'Invalid uidb64 or token'}, status=status.HTTP_404_NOT_FOUND)
+
+        if account_activation_token.check_token(user, token):
+            user.is_active = True
+            user.save()
+            return Response({'message': 'Account activated successfully.'})
+        else:
+            return Response({'message': 'Activation link is invalid.'})
+
+
+class SendActivationEmailView(APIView):
+    permission_classes = [permissions.AllowAny]
+    serializer_class = SendActivationEmailSerializer
+
+    def post(self, request, *args, **kwargs):
+        serializer = self.serializer_class(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        user = serializer.validated_data['user']
+        send_activation_email(user)
+        return Response({'message': 'Activation email sent.'})

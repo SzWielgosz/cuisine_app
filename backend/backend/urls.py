@@ -41,4 +41,8 @@ urlpatterns = [
     path('api/comments/<int:pk>', CommentDetailView.as_view()),
 
     path('api/ratings/<int:pk>', ReadUpdateDeleteRatingView.as_view()),
+
+    path('api/activate/<uidb64>/<token>/', ActivateUserView.as_view(), name='activate'),
+
+    path('api/activate-send', SendActivationEmailView.as_view()),
 ]
